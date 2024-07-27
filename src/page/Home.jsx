@@ -16,7 +16,7 @@ const Home = () => {
             toast.error("User name is required");
             return;
         }
-        navigate(`/editor/${roomId}/${userName}`, { state: { userName } });
+        navigate(`/editor/${btoa(roomId)}/${btoa(userName)}`, { state: { userName } });
     };
     const handleCreateRoomId = () => {
         const id = uuid();

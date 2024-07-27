@@ -19,7 +19,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/editor/:roomId/:name" element={<EditorPage />} />
+          <Route path="/editor/:roomIdEncoded/:userNameEncoded" element={<EditorPage />} />
         </Routes>
       </BrowserRouter>
     </>

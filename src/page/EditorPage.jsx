@@ -10,12 +10,10 @@ import { CircularProgress } from "@mui/material";
 
 const EditorPage = () => {
   const codeSyncRef = useRef(null);
-  const params = useParams();
-  const userName = params.name;
-  const location = useLocation();
-  // const userName = location.state.userName;
   const socketRef = useRef(null);
-  const { roomId } = useParams();
+  const { roomIdEncoded, userNameEncoded } = useParams();
+  const roomId = atob(roomIdEncoded);
+  const userName = atob(userNameEncoded);
   const reactNavigator = useNavigate();
   const [users, setUsers] = useState([]);
   useEffect(() => {
@@ -51,22 +49,21 @@ const EditorPage = () => {
       });
     };
 
-    const handleBeforeUnload = (event) => {
-      event.preventDefault();
-      event.returnValue = "";
+
+
+    init();
+    const handleBeforeUnload = (e) => {
       socketRef.current.emit(ACTIONS.LEAVE, { roomId, userName });
-      reactNavigator("/");
-      // Prevent default behavior of beforeunload event
     };
 
-    // window.addEventListener("beforeunload", handleBeforeUnload);
-    init();
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
     // Clean up the effect
     return () => {
       if (socketRef.current) {
         socketRef.current.disconnect();
       }
-      // window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [roomId, userName, reactNavigator]);
   const handleLeaveRoom = () => {
@@ -75,7 +72,7 @@ const EditorPage = () => {
   };
   const handleCopyRoomId = async () => {
     try {
-      await navigator.clipboard.writeText(location.pathname?.split("/")[2]);
+      await navigator.clipboard.writeText(roomId);
       toast.success("Room id copied to clipboard");
     } catch (error) {
       toast.error("Failed to copy room id");
