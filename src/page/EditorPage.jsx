@@ -6,6 +6,7 @@ import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import CodeEditor from "../components/CodeEditor";
 import { ACTIONS } from "../actions/Action";
+import { CircularProgress } from "@mui/material";
 
 const EditorPage = () => {
   const codeSyncRef = useRef(null);
@@ -33,11 +34,17 @@ const EditorPage = () => {
       });
 
       socketRef.current.emit(ACTIONS.JOIN, { roomId, userName });
-      socketRef.current.on(ACTIONS.JOINED, ({ userName, userList, socketId }) => {
-        socketRef.current.emit(ACTIONS.SYNC_CODE, { socketId, code: codeSyncRef.current });
-        toast.success(`${userName} joined the room`);
-        setUsers(userList);
-      });
+      socketRef.current.on(
+        ACTIONS.JOINED,
+        ({ userName, userList, socketId }) => {
+          socketRef.current.emit(ACTIONS.SYNC_CODE, {
+            socketId,
+            code: codeSyncRef.current,
+          });
+          toast.success(`${userName} joined the room`);
+          setUsers(userList);
+        }
+      );
       socketRef.current.on(ACTIONS.USER_LEFT, (userName) => {
         toast.error(`${userName} left the room`);
         setUsers((prev) => prev.filter((user) => user !== userName));
@@ -116,7 +123,7 @@ const EditorPage = () => {
                   </li>
                 ))
               ) : (
-                <p className="text-white">No user connected</p>
+                <CircularProgress color="secondary" />
               )}
             </ul>
           </div>
@@ -137,7 +144,13 @@ const EditorPage = () => {
         </div>
       </div>
       <div className="right flex-1">
-        <CodeEditor socketRef={socketRef} roomId={roomId} onCodeChange={(code)=>{codeSyncRef.current = code}} />
+        <CodeEditor
+          socketRef={socketRef}
+          roomId={roomId}
+          onCodeChange={(code) => {
+            codeSyncRef.current = code;
+          }}
+        />
       </div>
     </div>
   );

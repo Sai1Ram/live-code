@@ -1,21 +1,64 @@
 import CodeMirror from "codemirror";
 import "codemirror/mode/javascript/javascript";
+import "codemirror/mode/python/python";
 import "codemirror/theme/dracula.css";
 import "codemirror/addon/edit/closetag";
 import "codemirror/addon/edit/closebrackets";
 import "codemirror/lib/codemirror.css";
 import "codemirror/addon/display/fullscreen.css";
-import { Button, IconButton, Menu, MenuItem, Tooltip } from "@mui/material";
+import {
+  Button,
+  Divider,
+  Drawer,
+  IconButton,
+  Menu,
+  MenuItem,
+  Tooltip,
+  Typography,
+} from "@mui/material";
 import React, { useEffect, useRef, useState } from "react";
 import { FaAngleDown } from "react-icons/fa";
-import { MdFormatAlignLeft } from "react-icons/md";
-import { VscDebugRestart } from "react-icons/vsc";
+// import { MdFormatAlignLeft } from "react-icons/md";
+// import { VscDebugRestart } from "react-icons/vsc";
+import { CiPlay1 } from "react-icons/ci";
 import { ACTIONS } from "../actions/Action";
+import { createSubmission, getSubmission, runCode } from "../api/api";
 
 const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
+  const languageArray = [
+    { id: 2, name: "C++ (Clang 10.0.1)" },
+    { id: 13, name: "C (Clang 9.0.1)" },
+    { id: 22, name: "C# (Mono 6.12.0.122)" },
+    { id: 4, name: "Java (OpenJDK 14.0.1)" },
+    { id: 28, name: "Python 3.10 (PyPy 7.3.12)" },
+    {
+      id: 93,
+      name: "JavaScript (Node.js 18.15.0)",
+    },
+  ];
+  const error = [
+    { id: 1, description: "In Queue" },
+    { id: 2, description: "Processing" },
+    { id: 3, description: "Accepted" },
+    { id: 4, description: "Wrong Answer" },
+    { id: 5, description: "Time Limit Exceeded" },
+    { id: 6, description: "Compilation Error" },
+    { id: 7, description: "Runtime Error (SIGSEGV)" },
+    { id: 8, description: "Runtime Error (SIGXFSZ)" },
+    { id: 9, description: "Runtime Error (SIGFPE)" },
+    { id: 10, description: "Runtime Error (SIGABRT)" },
+    { id: 11, description: "Runtime Error (NZEC)" },
+    { id: 12, description: "Runtime Error (Other)" },
+    { id: 13, description: "Internal Error" },
+    { id: 14, description: "Exec Format Error" },
+  ];
   const editorRef = useRef(null);
   const [anchorEl, setAnchorEl] = useState(null);
-  const [language, setLanguage] = useState("JavaScript");
+  const [loading, setLoading] = useState(false);
+  const [outputSection, setOutputSection] = useState(false);
+  const [currentError, setCurrentError] = useState(null);
+  const [selectedLanguage, setSelectedLanguage] = useState(languageArray[5]);
+  const [result, setResult] = useState({});
   const open = Boolean(anchorEl);
 
   const handleClick = (event) => {
@@ -24,9 +67,26 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
   const handleClose = () => {
     setAnchorEl(null);
   };
-  // function handleEditorDidMount(editor, monaco) {
-  //   editorRef.current = editor;
-  // }
+  const handleRunCode = async () => {
+    setLoading(true);
+    setOutputSection(true);
+    const code = editorRef.current.getValue();
+    const codeDetails = {
+      language_id: selectedLanguage.id,
+      code,
+    };
+    try {
+      const response = await runCode(codeDetails);
+      setResult(response);
+      if (response.status_id !== 3) {
+        setCurrentError(error.find((err) => err.id === response.status.id));
+      }
+      setLoading(false);
+    } catch (error) {
+      console.error(error);
+      setLoading(false);
+    }
+  };
   useEffect(() => {
     const init = async () => {
       const codeArea = document.getElementById("codeArea");
@@ -65,9 +125,9 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
     });
   }, [socketRef.current]);
   return (
-    <div className="h-screen box-border rounded-md overflow-hidden bg-[#ffffff0f]">
+    <div className="h-screen relative box-border rounded-md overflow-hidden bg-[#ffffff0f]">
       <div className="flex py-2 px-4 justify-between box-border h-[6vh] items-center">
-        <div className="left w-24">
+        <div className="left ">
           <div>
             <Button
               onClick={handleClick}
@@ -75,18 +135,26 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
               endIcon={<FaAngleDown color="text.secondary" />}
               color="secondary"
             >
-              {language}
+              {selectedLanguage.name}
             </Button>
             <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
-              <MenuItem onClick={handleClose}>Python</MenuItem>
-              <MenuItem onClick={handleClose}>Java</MenuItem>
-              <MenuItem onClick={handleClose}>C++</MenuItem>
+              {languageArray.map((language) => (
+                <MenuItem
+                  key={language.id}
+                  onClick={() => {
+                    setSelectedLanguage(language);
+                    handleClose();
+                  }}
+                >
+                  {language.name}
+                </MenuItem>
+              ))}
             </Menu>
           </div>
         </div>
         <div className="right">
           <ul className="flex gap-2 items-center text-white">
-            <li>
+            {/* <li>
               <Tooltip title="Format Code" arrow>
                 <IconButton
                   size="small"
@@ -113,12 +181,90 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
                   <VscDebugRestart className="text-white" />
                 </IconButton>
               </Tooltip>
+            </li> */}
+            <li>
+              <Tooltip title="Run Code" arrow>
+                <div
+                  className="shadow-xl bg-gray-700 flex justify-center items-center gap-2 rounded-lg py-1 px-3 hover:shadow-none cursor-pointer"
+                  onClick={handleRunCode}
+                >
+                  <span className="text-white">Run</span>
+                  <CiPlay1 className="text-white" />
+                </div>
+              </Tooltip>
             </li>
           </ul>
         </div>
       </div>
       <div className="h-[94vh] w-full">
         <textarea id="codeArea" className="h-full"></textarea>
+        <Drawer
+          anchor={"bottom"}
+          open={outputSection}
+          onClose={() => setOutputSection(false)}
+          PaperProps={{
+            style: {
+              // width: "calc(100vw - 300px)",
+              height: "16rem",
+              left: "300px",
+              backgroundColor: "#1c1e29",
+            },
+          }}
+        >
+          <div className=" w-full h-12 bg-[#1c1e29] flex justify-between px-4 items-center">
+            <Typography
+              variant="body2"
+              className="text-white"
+              style={{
+                fontFamily: `"Baloo 2", sans-serif`,
+              }}
+            >
+              Output
+            </Typography>
+            <IconButton
+              size="small"
+              onClick={() => setOutputSection((prev) => !prev)}
+            >
+              <FaAngleDown className="text-white" />
+            </IconButton>
+          </div>
+
+          <Divider
+            sx={{
+              backgroundColor: "#ffffff1f",
+            }}
+          />
+          <div className="px-4 py-2 text-white">
+            {loading ? (
+              <div className="text-white text-xl animate-pulse">Loading...</div>
+            ) : result ? (
+              result?.status?.id === 3 ? (
+                <span className="text-green-500">{atob(result?.stdout)}</span>
+              ) : (
+                <span className="text-red-500">{currentError?.description}</span>
+              )
+            ) : (
+              "Output will be displayed here"
+            )}
+          </div>
+        </Drawer>
+      </div>
+      <div className="absolute bottom-0 w-full h-12 bg-[#1c1e29] flex justify-between px-4 items-center underline">
+        <Typography
+          variant="body2"
+          className="text-white"
+          style={{
+            fontFamily: `"Baloo 2", sans-serif`,
+          }}
+        >
+          Output
+        </Typography>
+        <IconButton
+          size="small"
+          onClick={() => setOutputSection((prev) => !prev)}
+        >
+          <FaAngleDown className="text-white" />
+        </IconButton>
       </div>
     </div>
   );
