@@ -53,4 +53,6 @@ const Home = () => {
   );
 };
 
+//next encode the id of the room and the name of the user in the url
+
 export default Home;
