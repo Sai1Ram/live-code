@@ -1,7 +1,7 @@
 import CodeMirror from "codemirror";
 import "codemirror/mode/javascript/javascript";
 import "codemirror/mode/python/python";
-import "codemirror/mode/clike/clike"
+import "codemirror/mode/clike/clike";
 import "codemirror/theme/dracula.css";
 import "codemirror/addon/edit/closetag";
 import "codemirror/addon/edit/closebrackets";
@@ -27,7 +27,6 @@ import { runCode } from "../api/api";
 import { LANGUAGES } from "../helper/constants";
 
 const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
-
   const error = [
     { id: 1, description: "In Queue" },
     { id: 2, description: "Processing" },
@@ -66,11 +65,11 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
     const codeDetails = {
       language: selectedLanguage.name,
       version: selectedLanguage.version,
-      files:[
+      files: [
         {
           content: code,
-        }
-      ]
+        },
+      ],
     };
     try {
       const response = await runCode(codeDetails);
@@ -105,7 +104,10 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
       }
       editorRef.current.setSize(null, "100%");
       editorRef.current.setValue(selectedLanguage?.snippets);
-      onCodeChange({code: editorRef.current.getValue(), language: selectedLanguage});
+      onCodeChange({
+        code: editorRef.current.getValue(),
+        language: selectedLanguage,
+      });
     };
     init();
   }, [roomId, socketRef, selectedLanguage]);
@@ -148,7 +150,10 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
                 <MenuItem
                   key={language.name}
                   onClick={() => {
-                    socketRef.current.emit(ACTIONS.LANGUAGE_CHANGE, {language, roomId});
+                    socketRef.current.emit(ACTIONS.LANGUAGE_CHANGE, {
+                      language,
+                      roomId,
+                    });
                     setSelectedLanguage(language);
                     handleClose();
                   }}
@@ -247,10 +252,24 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
             {loading ? (
               <div className="text-white text-xl animate-pulse">Loading...</div>
             ) : result ? (
-              result?.run?.code !== 1  ? (
-                <span className="text-green-500">{result?.run?.stdout?.split("\n")}</span>
+              result?.run?.code !== 1 ? (
+                <div className="text-green-500">
+                  {result?.run?.stdout?.split("\n").map((line, index) => (
+                    <React.Fragment key={index}>
+                      {line}
+                      <br />
+                    </React.Fragment>
+                  ))}
+                </div>
               ) : (
-                <span className="text-red-500">{result?.run?.stderr?.split("\n")}</span>
+                <div className="text-red-500">
+                  {result?.run?.stderr?.split("\n").map((line, index) => (
+                    <React.Fragment key={index}>
+                      {line}
+                      <br />
+                    </React.Fragment>
+                  ))}
+                </div>
               )
             ) : (
               "Output will be displayed here"
