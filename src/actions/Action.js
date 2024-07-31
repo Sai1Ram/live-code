@@ -5,4 +5,6 @@ export const ACTIONS = {
     USER_LEFT: 'USER_LEFT',
     CODE_CHANGE: 'CODE_CHANGE',
     SYNC_CODE: 'SYNC_CODE',
+    LANGUAGE_CHANGE: 'LANGUAGE_CHANGE',
+    
 }

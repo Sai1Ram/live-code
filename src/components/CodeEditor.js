@@ -1,6 +1,7 @@
 import CodeMirror from "codemirror";
 import "codemirror/mode/javascript/javascript";
 import "codemirror/mode/python/python";
+import "codemirror/mode/clike/clike"
 import "codemirror/theme/dracula.css";
 import "codemirror/addon/edit/closetag";
 import "codemirror/addon/edit/closebrackets";
@@ -22,20 +23,11 @@ import { FaAngleDown } from "react-icons/fa";
 // import { VscDebugRestart } from "react-icons/vsc";
 import { CiPlay1 } from "react-icons/ci";
 import { ACTIONS } from "../actions/Action";
-import { createSubmission, getSubmission, runCode } from "../api/api";
+import { runCode } from "../api/api";
+import { LANGUAGES } from "../helper/constants";
 
 const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
-  const languageArray = [
-    { id: 2, name: "C++ (Clang 10.0.1)" },
-    { id: 13, name: "C (Clang 9.0.1)" },
-    { id: 22, name: "C# (Mono 6.12.0.122)" },
-    { id: 4, name: "Java (OpenJDK 14.0.1)" },
-    { id: 28, name: "Python 3.10 (PyPy 7.3.12)" },
-    {
-      id: 93,
-      name: "JavaScript (Node.js 18.15.0)",
-    },
-  ];
+
   const error = [
     { id: 1, description: "In Queue" },
     { id: 2, description: "Processing" },
@@ -57,7 +49,7 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
   const [loading, setLoading] = useState(false);
   const [outputSection, setOutputSection] = useState(false);
   const [currentError, setCurrentError] = useState(null);
-  const [selectedLanguage, setSelectedLanguage] = useState(languageArray[5]);
+  const [selectedLanguage, setSelectedLanguage] = useState(LANGUAGES[0]);
   const [result, setResult] = useState({});
   const open = Boolean(anchorEl);
 
@@ -72,15 +64,22 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
     setOutputSection(true);
     const code = editorRef.current.getValue();
     const codeDetails = {
-      language_id: selectedLanguage.id,
-      code,
+      language: selectedLanguage.name,
+      version: selectedLanguage.version,
+      files:[
+        {
+          content: code,
+        }
+      ]
     };
     try {
       const response = await runCode(codeDetails);
+      // const { run: result } = await executeCode(language, sourceCode);
+      // setOutput(result.output.split("\n"));
       setResult(response);
-      if (response.status_id !== 3) {
-        setCurrentError(error.find((err) => err.id === response.status.id));
-      }
+      // if (response.status_id !== 3) {
+      //   setCurrentError(error.find((err) => err.id === response.status.id));
+      // }
       setLoading(false);
     } catch (error) {
       console.error(error);
@@ -94,7 +93,8 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
         editorRef.current = CodeMirror.fromTextArea(
           document.getElementById("codeArea"),
           {
-            mode: { name: "javascript", json: true },
+            // mode: { name: "text/javascript", json: true },
+            mode: selectedLanguage.mode,
             theme: "dracula",
             autoCloseTags: true,
             autoCloseBrackets: true,
@@ -104,13 +104,14 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
         );
       }
       editorRef.current.setSize(null, "100%");
+      editorRef.current.setValue(selectedLanguage?.snippets);
+      onCodeChange({code: editorRef.current.getValue(), language: selectedLanguage});
     };
     init();
-  }, [roomId, socketRef]);
+  }, [roomId, socketRef, selectedLanguage]);
   if (editorRef.current) {
     editorRef.current.on("change", (event, instance) => {
       if (instance.origin !== "setValue" && event.getValue() !== null) {
-        onCodeChange(event.getValue());
         socketRef.current.emit(ACTIONS.CODE_CHANGE, {
           value: event.getValue(),
           roomId,
@@ -122,6 +123,11 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
     if (socketRef.current === null) return;
     socketRef.current.on(ACTIONS.CODE_CHANGE, (value) => {
       editorRef.current.setValue(value || "");
+    });
+    socketRef.current.on(ACTIONS.LANGUAGE_CHANGE, (language) => {
+      setSelectedLanguage(language);
+      editorRef.current.setOption("mode", language.mode);
+      editorRef.current.setValue(language.snippets);
     });
   }, [socketRef.current]);
   return (
@@ -138,15 +144,18 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
               {selectedLanguage.name}
             </Button>
             <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
-              {languageArray.map((language) => (
+              {LANGUAGES.map((language) => (
                 <MenuItem
-                  key={language.id}
+                  key={language.name}
                   onClick={() => {
+                    socketRef.current.emit(ACTIONS.LANGUAGE_CHANGE, {language, roomId});
                     setSelectedLanguage(language);
                     handleClose();
                   }}
+                  className="uppercase"
                 >
                   {language.name}
+                  &nbsp;{language.version}
                 </MenuItem>
               ))}
             </Menu>
@@ -238,10 +247,10 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
             {loading ? (
               <div className="text-white text-xl animate-pulse">Loading...</div>
             ) : result ? (
-              result?.status?.id === 3 ? (
-                <span className="text-green-500">{atob(result?.stdout)}</span>
+              result?.run?.code !== 1  ? (
+                <span className="text-green-500">{result?.run?.stdout?.split("\n")}</span>
               ) : (
-                <span className="text-red-500">{currentError?.description}</span>
+                <span className="text-red-500">{result?.run?.stderr?.split("\n")}</span>
               )
             ) : (
               "Output will be displayed here"

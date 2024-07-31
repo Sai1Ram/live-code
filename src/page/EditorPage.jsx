@@ -37,7 +37,8 @@ const EditorPage = () => {
         ({ userName, userList, socketId }) => {
           socketRef.current.emit(ACTIONS.SYNC_CODE, {
             socketId,
-            code: codeSyncRef.current,
+            code: codeSyncRef.current.code,
+            language: codeSyncRef.current.language,
           });
           toast.success(`${userName} joined the room`);
           setUsers(userList);
@@ -144,8 +145,8 @@ const EditorPage = () => {
         <CodeEditor
           socketRef={socketRef}
           roomId={roomId}
-          onCodeChange={(code) => {
-            codeSyncRef.current = code;
+          onCodeChange={(codeDetails) => {
+            codeSyncRef.current = codeDetails;
           }}
         />
       </div>
