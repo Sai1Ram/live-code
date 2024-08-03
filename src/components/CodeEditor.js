@@ -19,37 +19,20 @@ import {
 } from "@mui/material";
 import React, { useEffect, useRef, useState } from "react";
 import { FaAngleDown } from "react-icons/fa";
-// import { MdFormatAlignLeft } from "react-icons/md";
-// import { VscDebugRestart } from "react-icons/vsc";
 import { CiPlay1 } from "react-icons/ci";
 import { ACTIONS } from "../actions/Action";
 import { runCode } from "../api/api";
 import { LANGUAGES } from "../helper/constants";
 
-const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
-  const error = [
-    { id: 1, description: "In Queue" },
-    { id: 2, description: "Processing" },
-    { id: 3, description: "Accepted" },
-    { id: 4, description: "Wrong Answer" },
-    { id: 5, description: "Time Limit Exceeded" },
-    { id: 6, description: "Compilation Error" },
-    { id: 7, description: "Runtime Error (SIGSEGV)" },
-    { id: 8, description: "Runtime Error (SIGXFSZ)" },
-    { id: 9, description: "Runtime Error (SIGFPE)" },
-    { id: 10, description: "Runtime Error (SIGABRT)" },
-    { id: 11, description: "Runtime Error (NZEC)" },
-    { id: 12, description: "Runtime Error (Other)" },
-    { id: 13, description: "Internal Error" },
-    { id: 14, description: "Exec Format Error" },
-  ];
+const CodeEditor = ({ socketRef, roomId, onCodeChange, onLanguageChange }) => {
   const editorRef = useRef(null);
+  const selectedLanguageRef = useRef(null);
   const [anchorEl, setAnchorEl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [outputSection, setOutputSection] = useState(false);
-  const [currentError, setCurrentError] = useState(null);
   const [selectedLanguage, setSelectedLanguage] = useState(LANGUAGES[0]);
   const [result, setResult] = useState({});
+  const isItFirst = useRef(true);
   const open = Boolean(anchorEl);
 
   const handleClick = (event) => {
@@ -73,12 +56,7 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
     };
     try {
       const response = await runCode(codeDetails);
-      // const { run: result } = await executeCode(language, sourceCode);
-      // setOutput(result.output.split("\n"));
       setResult(response);
-      // if (response.status_id !== 3) {
-      //   setCurrentError(error.find((err) => err.id === response.status.id));
-      // }
       setLoading(false);
     } catch (error) {
       console.error(error);
@@ -93,7 +71,7 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
           document.getElementById("codeArea"),
           {
             // mode: { name: "text/javascript", json: true },
-            mode: selectedLanguage.mode,
+            mode: selectedLanguage?.mode,
             theme: "dracula",
             autoCloseTags: true,
             autoCloseBrackets: true,
@@ -103,35 +81,35 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
         );
       }
       editorRef.current.setSize(null, "100%");
-      editorRef.current.setValue(selectedLanguage?.snippets);
-      onCodeChange({
-        code: editorRef.current.getValue(),
-        language: selectedLanguage,
+
+      // editorRef.current.setValue(selectedLanguage?.snippets);
+      editorRef.current.on("change", (event, instance) => {
+        if (instance.origin !== "setValue" && event.getValue() !== null) {
+          onCodeChange(event.getValue());
+          socketRef.current.emit(ACTIONS.CODE_CHANGE, {
+            value: event.getValue(),
+            roomId,
+          });
+        }
       });
     };
     init();
-  }, [roomId, socketRef, selectedLanguage]);
-  if (editorRef.current) {
-    editorRef.current.on("change", (event, instance) => {
-      if (instance.origin !== "setValue" && event.getValue() !== null) {
-        socketRef.current.emit(ACTIONS.CODE_CHANGE, {
-          value: event.getValue(),
-          roomId,
-        });
-      }
-    });
-  }
+  }, [roomId, socketRef]);
+
   useEffect(() => {
     if (socketRef.current === null) return;
     socketRef.current.on(ACTIONS.CODE_CHANGE, (value) => {
-      editorRef.current.setValue(value || "");
+      editorRef.current.setValue(value);
     });
     socketRef.current.on(ACTIONS.LANGUAGE_CHANGE, (language) => {
-      setSelectedLanguage(language);
       editorRef.current.setOption("mode", language.mode);
-      editorRef.current.setValue(language.snippets);
+      setSelectedLanguage(language || selectedLanguage);
     });
+    return () => {
+      socketRef.current.off(ACTIONS.CODE_CHANGE);
+    };
   }, [socketRef.current]);
+
   return (
     <div className="h-screen relative box-border rounded-md overflow-hidden bg-[#ffffff0f]">
       <div className="flex py-2 px-4 justify-between box-border h-[6vh] items-center">
@@ -154,7 +132,9 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
                       language,
                       roomId,
                     });
+                    editorRef.current.setOption("mode", language.mode);
                     setSelectedLanguage(language);
+                    onLanguageChange(language);
                     handleClose();
                   }}
                   className="uppercase"
@@ -168,34 +148,6 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
         </div>
         <div className="right">
           <ul className="flex gap-2 items-center text-white">
-            {/* <li>
-              <Tooltip title="Format Code" arrow>
-                <IconButton
-                  size="small"
-                  sx={{
-                    "&:hover": {
-                      backgroundColor: "#ffffff1f",
-                    },
-                  }}
-                >
-                  <MdFormatAlignLeft className="text-white" />
-                </IconButton>
-              </Tooltip>
-            </li>
-            <li>
-              <Tooltip title="Reset all" arrow>
-                <IconButton
-                  size="small"
-                  sx={{
-                    "&:hover": {
-                      backgroundColor: "#ffffff1f",
-                    },
-                  }}
-                >
-                  <VscDebugRestart className="text-white" />
-                </IconButton>
-              </Tooltip>
-            </li> */}
             <li>
               <Tooltip title="Run Code" arrow>
                 <div
@@ -207,6 +159,17 @@ const CodeEditor = ({ socketRef, roomId, onCodeChange }) => {
                 </div>
               </Tooltip>
             </li>
+            {/* <li>
+              <Tooltip title="Run Code" arrow>
+                <div
+                  className="shadow-xl bg-gray-700 flex justify-center items-center gap-2 rounded-lg py-1 px-3 hover:shadow-none cursor-pointer"
+                  onClick={handleRetrieveData}
+                >
+                  <span className="text-white">Retrieve data</span>
+                  <CiPlay1 className="text-white" />
+                </div>
+              </Tooltip>
+            </li> */}
           </ul>
         </div>
       </div>

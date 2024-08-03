@@ -3,13 +3,13 @@ import Avatar from "react-avatar";
 import { initSocket } from "../helper/socket";
 import toast from "react-hot-toast";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import { useLocation } from "react-router-dom";
 import CodeEditor from "../components/CodeEditor";
 import { ACTIONS } from "../actions/Action";
 import { CircularProgress } from "@mui/material";
 
 const EditorPage = () => {
   const codeSyncRef = useRef(null);
+  const langSyncRef = useRef(null);
   const socketRef = useRef(null);
   const { roomIdEncoded, userNameEncoded } = useParams();
   const roomId = atob(roomIdEncoded);
@@ -37,8 +37,11 @@ const EditorPage = () => {
         ({ userName, userList, socketId }) => {
           socketRef.current.emit(ACTIONS.SYNC_CODE, {
             socketId,
-            code: codeSyncRef.current.code,
-            language: codeSyncRef.current.language,
+            code: codeSyncRef.current
+          });
+          socketRef.current.emit(ACTIONS.SYNC_LANGUAGE, {
+            socketId,
+            language: langSyncRef.current
           });
           toast.success(`${userName} joined the room`);
           setUsers(userList);
@@ -145,8 +148,11 @@ const EditorPage = () => {
         <CodeEditor
           socketRef={socketRef}
           roomId={roomId}
-          onCodeChange={(codeDetails) => {
-            codeSyncRef.current = codeDetails;
+          onCodeChange={(code) => {
+            codeSyncRef.current = code;
+          }}
+          onLanguageChange={(language) => {
+            langSyncRef.current = language;
           }}
         />
       </div>
